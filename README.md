@@ -1,4 +1,4 @@
-# Api для хранения структуризации и обработки изображений
+# Api для хранения, структуризации и обработки изображений
 
 ## Запросы:
 
@@ -6,13 +6,13 @@
 
 `POST HOST/avatar/user_id`
 
-input type="file" name="files[]"
+input type="file"; name="files[]"
 
-**2. Добавление и изменение фото поста**
+**2. Добавление и изменение фото поста (пачкой)**
 
 `POST HOST/post/post_id`
 
-input type="file" name="files[]"
+input type="file"; name="files[]"
 
 ### Инструкция:
 
