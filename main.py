@@ -48,7 +48,7 @@ def upload_avatar(user_id):
                     os.rename(old_file, new_file)
                 filename = 'avatar.webp'
                 file.save(os.path.join(AVATAR_UPLOAD_FOLDER + '/' + user_id, filename))
-                road = 'http://' + HOST + ":" + PORT + '/static/avatars/' + user_id + '/avatar.webp'
+                road = 'http://' + HOST + ":" + str(PORT) + '/static/avatars/' + user_id + '/avatar.webp'
 
                 success = True
             else:
@@ -124,7 +124,7 @@ def upload_post_photo(post_id):
                 file_count = str(len(files) + 1)
                 new_name = 'post(' + file_count + ').webp'
                 file.save(os.path.join(POST_UPLOAD_FOLDER + '/' + post_id, new_name))
-                road = 'http://' + HOST + ":" + PORT + '/static/posts/' + post_id + '/' + new_name
+                road = 'http://' + HOST + ":" + str(PORT) + '/static/posts/' + post_id + '/' + new_name
                 data["photos"].append(road)
                 success = True
 
