@@ -1,3 +1,19 @@
+# Api для хранения, структуризации и обработки изображений
+
+## Запросы:
+
+**1. Добавление и изменение аватара пользователя**
+
+`POST HOST/avatar/user_id`
+
+input type="file"; name="files[]"
+
+**2. Добавление и изменение фото поста (пачкой)**
+
+`POST HOST/post/post_id`
+
+input type="file"; name="files[]"
+
 ### Инструкция:
 
 1. pip install -r `requirements.txt`
