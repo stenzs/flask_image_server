@@ -5,7 +5,6 @@ import psycopg2
 app = Flask(__name__)
 
 
-# База данных
 database = "kvik"
 user = "kvik"
 password = "2262"
@@ -13,7 +12,6 @@ host = "192.168.8.92"
 port = "5432"
 
 
-# Конфигурация
 AVATAR_UPLOAD_FOLDER = 'static/avatars'
 app.config['AVATAR_UPLOAD_FOLDER'] = AVATAR_UPLOAD_FOLDER
 POST_UPLOAD_FOLDER = 'static/posts'
@@ -22,12 +20,10 @@ HOST = '127.0.0.1'
 PORT = 80
 
 
-# На случай проверки формата
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower()
 
 
-# Установка нового аватара
 @app.route('/avatar/<user_id>', methods=['POST'])
 def upload_avatar(user_id):
     if request.method == 'POST':
@@ -105,11 +101,8 @@ def upload_avatar(user_id):
             resp.status_code = 500
             return resp
 
-    # Добавить добавление фото (одного или нескольких) но в пределах ограничения
-    # Добавить изменение главного фото
-    # Добавить удаление фото
 
-# Манипуляции с фото постов
+
 @app.route('/post/<post_id>', methods=['POST'])
 def upload_post_photo(post_id):
     if request.method == 'POST':
