@@ -1,9 +1,10 @@
 from flask import Flask, request, jsonify
 import os
 import psycopg2
+from flask_cors import CORS
 
 app = Flask(__name__)
-
+CORS(app)
 
 database = "kvik"
 user = "kvik"
@@ -16,8 +17,8 @@ AVATAR_UPLOAD_FOLDER = 'static/avatars'
 app.config['AVATAR_UPLOAD_FOLDER'] = AVATAR_UPLOAD_FOLDER
 POST_UPLOAD_FOLDER = 'static/posts'
 app.config['POST_UPLOAD_FOLDER'] = POST_UPLOAD_FOLDER
-HOST = '127.0.0.11'
-PORT = 81
+HOST = '192.168.8.111'
+PORT = 6001
 
 
 def allowed_file(filename):
