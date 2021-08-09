@@ -2,23 +2,27 @@ from flask import Flask, request, jsonify
 import os
 import psycopg2
 from flask_cors import CORS
+import config
 
 app = Flask(__name__)
 CORS(app)
 
-database = "kvik"
-user = "kvik"
-password = "2262"
-host = "192.168.8.92"
-port = "5432"
+database = config.database
+user = config.user
+password = config.password
+host = config.host
+port = config.port
 
 
 AVATAR_UPLOAD_FOLDER = 'static/avatars'
 app.config['AVATAR_UPLOAD_FOLDER'] = AVATAR_UPLOAD_FOLDER
 POST_UPLOAD_FOLDER = 'static/posts'
 app.config['POST_UPLOAD_FOLDER'] = POST_UPLOAD_FOLDER
-HOST = '192.168.8.111'
-PORT = 6001
+# HOST = '192.168.8.111'
+# PORT = 6001
+HOST = '127.0.0.1'
+PORT = 80
+
 
 
 def allowed_file(filename):
@@ -49,7 +53,7 @@ def upload_avatar(user_id):
                     os.rename(old_file, new_file)
                 filename = 'avatar.webp'
                 file.save(os.path.join(AVATAR_UPLOAD_FOLDER + '/' + user_id, filename))
-                road = 'http://' + HOST + ":" + str(PORT) + '/static/avatars/' + user_id + '/avatar.webp'
+                road = 'http://' + HOST + ":" + str(PORT) + '/' + AVATAR_UPLOAD_FOLDER + '/' + user_id + '/avatar.webp'
 
                 success = True
             else:
@@ -125,7 +129,7 @@ def upload_post_photo(post_id):
                 file_count = str(len(files) + 1)
                 new_name = 'post(' + file_count + ').webp'
                 file.save(os.path.join(POST_UPLOAD_FOLDER + '/' + post_id, new_name))
-                road = 'http://' + HOST + ":" + str(PORT) + '/static/posts/' + post_id + '/' + new_name
+                road = 'http://' + HOST + ":" + str(PORT) + '/' + POST_UPLOAD_FOLDER + '/' + post_id + '/' + new_name
                 data["photos"].append(road)
                 success = True
 
