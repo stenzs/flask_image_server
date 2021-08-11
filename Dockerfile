@@ -17,4 +17,3 @@ COPY nginx.conf /etc/nginx
 RUN chmod +x ./start.sh
 CMD ["./start.sh"]
 
-docker build . -t flask_image
