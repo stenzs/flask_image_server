@@ -13,16 +13,12 @@ password = config.password
 host = config.host
 port = config.port
 
-
-AVATAR_UPLOAD_FOLDER = 'static/avatars'
+AVATAR_UPLOAD_FOLDER = config.AVATAR_UPLOAD_FOLDER
+POST_UPLOAD_FOLDER = config.POST_UPLOAD_FOLDER
 app.config['AVATAR_UPLOAD_FOLDER'] = AVATAR_UPLOAD_FOLDER
-POST_UPLOAD_FOLDER = 'static/posts'
 app.config['POST_UPLOAD_FOLDER'] = POST_UPLOAD_FOLDER
-# HOST = '192.168.8.111'
-# PORT = 6001
-HOST = '127.0.0.1'
-PORT = 80
-
+HOST = config.HOST
+PORT = config.PORT
 
 
 def allowed_file(filename):
