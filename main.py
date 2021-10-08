@@ -21,6 +21,8 @@ AVATAR_UPLOAD_FOLDER = config.AVATAR_UPLOAD_FOLDER
 AVATAR_UPLOAD_ALIAS = config.AVATAR_UPLOAD_ALIAS
 POST_UPLOAD_FOLDER = config.POST_UPLOAD_FOLDER
 POST_UPLOAD_ALIAS = config.POST_UPLOAD_ALIAS
+CHAT_UPLOAD_FOLDER = config.CHAT_UPLOAD_FOLDER
+CHAT_UPLOAD_ALIAS = config.CHAT_UPLOAD_ALIAS
 
 
 def allowed_file(filename):
@@ -140,6 +142,48 @@ def upload_post_photo(post_id):
             resp = jsonify(errors)
             resp.status_code = 500
             return resp
+
+
+@app.route('/chat', methods=['POST'])
+def upload_chat_photo():
+    if request.method == 'POST':
+        if 'files[]' not in request.files:
+            return jsonify({'message': 'No file part in the request'}), 422
+        files = request.files.getlist('files[]')
+        errors = {}
+        success = False
+        data_photos = {"photos": []}
+        for file in files:
+            if file:
+                data = file.read()
+                file_hash = hashlib.md5(data).hexdigest()
+                filename = file_hash[10:] + (uuid.uuid4().hex)[0:7] + datetime.now().strftime('%Y%m%d%H%M%S%f') + '.webp'
+                hash_road = str(file_hash[0:2]) + '/' + str(file_hash[2:4]) + '/' + str(file_hash[4:6]) + '/' + str(file_hash[6:8])
+                if not os.path.exists(CHAT_UPLOAD_FOLDER + '/' + hash_road):
+                    os.makedirs(CHAT_UPLOAD_FOLDER + '/' + hash_road)
+                f = open(CHAT_UPLOAD_FOLDER + '/' + hash_road + '/' + filename, "wb")
+                f.write(data)
+                f.close()
+                road = CHAT_UPLOAD_ALIAS + '/' + hash_road + '/' + filename
+                data_photos["photos"].append(road)
+                success = True
+
+            else:
+                errors[file.filename] = 'File type is not allowed'
+
+        if success and errors:
+            errors['message'] = 'something wrong'
+            resp = jsonify(errors)
+            resp.status_code = 500
+            return resp
+        if success:
+            return jsonify({'message': 'success', 'images': data_photos}), 200
+        else:
+
+            resp = jsonify(errors)
+            resp.status_code = 500
+            return resp
+
 
 
 if __name__ == '__main__':
