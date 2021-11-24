@@ -5,7 +5,9 @@ import hashlib
 from datetime import datetime
 import uuid
 import psycopg2
+import jwt
 import config
+
 
 app = Flask(__name__, static_url_path="/images")
 CORS(app)
@@ -38,10 +40,21 @@ def hello():
 @app.route('/avatar/<user_id>', methods=['POST'])
 def upload_avatar(user_id):
     if request.method == 'POST':
+
+        headers = request.headers
+        if 'x-access-token' not in headers:
+            return 'A token is required for authentication', 400
+        try:
+            decode_token = jwt.decode(headers['x-access-token'], config.kvik_token, algorithms=["HS256"])
+        except Exception as e:
+            print(e)
+            return 'Invalid Token', 400
+        if int(decode_token['sub']) != int(user_id):
+            return 'Invalid Token', 400
+
         if 'files[]' not in request.files:
             return jsonify({'message': 'No file part in the request'}), 422
         files = request.files.getlist('files[]')
-
         errors = {}
         success = False
         for file in files:
@@ -87,9 +100,21 @@ def upload_avatar(user_id):
             return resp
 
 
-@app.route('/post/<post_id>', methods=['POST'])
-def upload_post_photo(post_id):
+@app.route('/post/<user_id>/<post_id>', methods=['POST'])
+def upload_post_photo(user_id, post_id):
     if request.method == 'POST':
+
+        headers = request.headers
+        if 'x-access-token' not in headers:
+            return 'A token is required for authentication', 400
+        try:
+            decode_token = jwt.decode(headers['x-access-token'], config.kvik_token, algorithms=["HS256"])
+        except Exception as e:
+            print(e)
+            return 'Invalid Token', 400
+        if int(decode_token['sub']) != int(user_id):
+            return 'Invalid Token', 400
+
         if 'files[]' not in request.files:
             return jsonify({'message': 'No file part in the request'}), 422
         files = request.files.getlist('files[]')
@@ -132,7 +157,7 @@ def upload_post_photo(post_id):
             cur = con.cursor()
             row = '"photo"'
             cur.execute(
-                "UPDATE public.posts SET " + row + " = '" + valid_data + "' WHERE id = " + post_id
+                "UPDATE public.posts SET " + row + " = '" + valid_data + "' WHERE id = " + post_id + " AND user_id = " + user_id
             )
             con.commit()
             con.close()
@@ -144,9 +169,21 @@ def upload_post_photo(post_id):
             return resp
 
 
-@app.route('/chat', methods=['POST'])
-def upload_chat_photo():
+@app.route('/chat/<user_id>', methods=['POST'])
+def upload_chat_photo(user_id):
     if request.method == 'POST':
+
+        headers = request.headers
+        if 'x-access-token' not in headers:
+            return 'A token is required for authentication', 400
+        try:
+            decode_token = jwt.decode(headers['x-access-token'], config.kvik_token, algorithms=["HS256"])
+        except Exception as e:
+            print(e)
+            return 'Invalid Token', 400
+        if int(decode_token['sub']) != int(user_id):
+            return 'Invalid Token', 400
+
         if 'files[]' not in request.files:
             return jsonify({'message': 'No file part in the request'}), 422
         files = request.files.getlist('files[]')
