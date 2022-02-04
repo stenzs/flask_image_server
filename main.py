@@ -34,7 +34,7 @@ def allowed_file(filename):
 @app.route('/', methods=['GET'])
 def hello():
     if request.method == 'GET':
-        return jsonify({'message': 'test'}), 200
+        return jsonify({'message': 'test 04.02'}), 200
 
 
 @app.route('/avatar/<user_id>', methods=['POST'])
