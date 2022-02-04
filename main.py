@@ -126,7 +126,7 @@ def upload_post_photo(user_id, post_id):
             if file:
                 data = file.read()
                 file_hash = hashlib.md5(data).hexdigest()
-                filename = file_hash[10:] + (uuid.uuid4().hex)[0:7] + datetime.now().strftime('%Y%m%d%H%M%S%f') + '.webp'
+                filename = str(post_id) + file_hash[8:] + '.webp'
                 hash_road = str(file_hash[0:2]) + '/' + str(file_hash[2:4]) + '/' + str(file_hash[4:6]) + '/' + str(file_hash[6:8])
                 if not os.path.exists(POST_UPLOAD_FOLDER + '/' + hash_road):
                     os.makedirs(POST_UPLOAD_FOLDER + '/' + hash_road)
