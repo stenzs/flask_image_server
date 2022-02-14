@@ -7,6 +7,7 @@ import uuid
 import psycopg2
 import jwt
 import config
+from PIL import Image
 
 
 app = Flask(__name__, static_url_path="/images")
@@ -125,14 +126,44 @@ def upload_post_photo(user_id, post_id):
         for file in files:
             if file:
                 data = file.read()
+                print(data)
+
+
+
+
+                photo = Image.open(file)
+                watermark = Image.open('watermark.png')
+
+                mark_width, mark_height = watermark.size
+                photo_width, photo_height = photo.size
+
+
+                if photo_height > photo_width:
+                    new_mark_width = int(photo_width / 5)
+                    new_mark_height = int(new_mark_width * mark_height / mark_width)
+                    step = int(new_mark_height * 0.5)
+                else:
+                    new_mark_width = int(photo_width / 10)
+                    new_mark_height = int(new_mark_width * mark_height / mark_width)
+                    step = int(new_mark_height * 0.5)
+
+                watermark = watermark.resize((new_mark_width, new_mark_height))
+                photo.paste(watermark, (photo_width - new_mark_width - step, photo_height - new_mark_height - step), watermark)
+
                 file_hash = hashlib.md5(data).hexdigest()
                 filename = str(post_id) + file_hash[8:] + '.webp'
                 hash_road = str(file_hash[0:2]) + '/' + str(file_hash[2:4]) + '/' + str(file_hash[4:6]) + '/' + str(file_hash[6:8])
                 if not os.path.exists(POST_UPLOAD_FOLDER + '/' + hash_road):
                     os.makedirs(POST_UPLOAD_FOLDER + '/' + hash_road)
-                f = open(POST_UPLOAD_FOLDER + '/' + hash_road + '/' + filename, "wb")
-                f.write(data)
-                f.close()
+
+
+                photo.save(POST_UPLOAD_FOLDER + '/' + hash_road + '/' + filename)
+                # f = open(POST_UPLOAD_FOLDER + '/' + hash_road + '/' + filename, "wb")
+                # f.write(data)
+                # f.close()
+
+
+
                 road = POST_UPLOAD_ALIAS + '/' + hash_road + '/' + filename
                 data_photos["photos"].append(road)
                 success = True
