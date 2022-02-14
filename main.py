@@ -143,9 +143,9 @@ def upload_post_photo(user_id, post_id):
                     new_mark_height = int(new_mark_width * mark_height / mark_width)
                     step = int(new_mark_height * 0.5)
                 else:
-                    new_mark_width = int(photo_width / 10)
-                    new_mark_height = int(new_mark_width * mark_height / mark_width)
-                    step = int(new_mark_height * 0.5)
+                    new_mark_height = int(photo_height / 10)
+                    new_mark_width = int(new_mark_height * mark_width / mark_height)
+                    step = int(new_mark_width * 0.5)
 
                 watermark = watermark.resize((new_mark_width, new_mark_height))
                 photo.paste(watermark, (photo_width - new_mark_width - step, photo_height - new_mark_height - step), watermark)
