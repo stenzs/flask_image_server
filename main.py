@@ -79,7 +79,8 @@ def upload_avatar(user_id):
             try:
                 con = psycopg2.connect(database=database, user=user, password=password, host=host, port=port)
                 cur = con.cursor()
-                # cur.execute("UPDATE public.users SET \"userPhoto\" = '" + photos[0] + "' WHERE id = " + user_id)
+                old_photo = "1/" + config.avatar_alias + "/" + user_id + "/n/" + db_photos[0]
+                cur.execute("UPDATE public.users SET \"userPhoto\" = '" + old_photo + "' WHERE id = " + user_id)
                 cur.execute("UPDATE public.users SET \"avatar\" = %s WHERE id = %s", (db_photos[0], user_id))
                 con.commit()
                 con.close()
@@ -103,7 +104,7 @@ def upload_post_photo(user_id, post_id):
             return "Bad request", 400
 
         files = request.files.getlist("files[]")
-        # photos = []
+        photos = []
         db_photos = []
         for file in files:
             filename = file.filename
@@ -138,18 +139,18 @@ def upload_post_photo(user_id, post_id):
                     images_functions.save_image(small_image, save_road + "/" + "s" + new_filename, 80)
                     images_functions.save_image(smallest_image, save_road + "/" + "x" + new_filename, 80)
 
-                    # db_road = config.upload_alias + "/" + config.post_alias + "/" + hash_road + "/" + new_filename
-                    # photos.append(db_road)
+                    db_road = "1/" + config.post_alias + "/" + post_id + "/n/" + db_filename
+                    photos.append(db_road)
                     db_photos.append(db_filename)
                 except Exception:
                     pass
 
         if len(db_photos) > 0:
             try:
-                # valid_data = '"' + (str({"photos": photos}).replace("'", '\\"')).replace(" ", "") + '"'
+                valid_data = '"' + (str({"photos": photos}).replace("'", '\\"')).replace(" ", "") + '"'
                 con = psycopg2.connect(database=database, user=user, password=password, host=host, port=port)
                 cur = con.cursor()
-                # cur.execute("UPDATE public.posts SET \"photo\" = '" + valid_data + "' WHERE id = " + post_id + " AND user_id = " + user_id)
+                cur.execute("UPDATE public.posts SET \"photo\" = '" + valid_data + "' WHERE id = " + post_id + " AND user_id = " + user_id)
                 cur.execute("UPDATE public.posts SET \"images\" = %s WHERE id = %s AND user_id = %s", (db_photos, post_id, user_id))
                 con.commit()
                 con.close()
@@ -163,14 +164,14 @@ def upload_post_photo(user_id, post_id):
 def upload_chat_photo(user_id):
     if request.method == 'POST':
 
-        # headers = request.headers
-        # if "x-access-token" not in headers:
-        #     return "Bad request", 400
-        # token = headers["x-access-token"]
-        # if not images_functions.check_token(token, user_id):
-        #     return "Bad request", 400
-        # if "files[]" not in request.files:
-        #     return "Bad request", 400
+        headers = request.headers
+        if "x-access-token" not in headers:
+            return "Bad request", 400
+        token = headers["x-access-token"]
+        if not images_functions.check_token(token, user_id):
+            return "Bad request", 400
+        if "files[]" not in request.files:
+            return "Bad request", 400
 
         files = request.files.getlist("files[]")
         db_photos = []
