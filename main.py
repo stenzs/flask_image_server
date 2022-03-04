@@ -1,12 +1,10 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import os
 import hashlib
-from datetime import datetime
-import uuid
 import psycopg2
-import jwt
 import config
+import images_functions
 from PIL import Image
 
 
@@ -18,24 +16,23 @@ user = config.user
 password = config.password
 host = config.host
 port = config.port
-
-ADDRESS = config.ADDRESS
-AVATAR_UPLOAD_FOLDER = config.AVATAR_UPLOAD_FOLDER
-AVATAR_UPLOAD_ALIAS = config.AVATAR_UPLOAD_ALIAS
-POST_UPLOAD_FOLDER = config.POST_UPLOAD_FOLDER
-POST_UPLOAD_ALIAS = config.POST_UPLOAD_ALIAS
-CHAT_UPLOAD_FOLDER = config.CHAT_UPLOAD_FOLDER
-CHAT_UPLOAD_ALIAS = config.CHAT_UPLOAD_ALIAS
+ADDRESS = config.adress
 
 
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower()
-
-
-@app.route('/', methods=['GET'])
+@app.route("/", methods=["GET"])
 def hello():
-    if request.method == 'GET':
-        return jsonify({'message': 'test 04.02'}), 200
+    if request.method == "GET":
+        return jsonify({"version": "00.05"}), 200
+
+
+@app.route("/<server>/<name>/<obj_id>/<size>/<image>", methods=["GET"])
+def get_images(server, name, obj_id, size, image):
+    if request.method == "GET":
+        try:
+            road_to_file = images_functions.get_road_to_file(image, obj_id, size, name)
+            return send_file(road_to_file, mimetype="image/gif")
+        except Exception:
+            return "404", 404
 
 
 @app.route('/avatar/<user_id>', methods=['POST'])
@@ -43,216 +40,176 @@ def upload_avatar(user_id):
     if request.method == 'POST':
 
         headers = request.headers
-        if 'x-access-token' not in headers:
-            return 'A token is required for authentication', 400
-        try:
-            decode_token = jwt.decode(headers['x-access-token'], config.kvik_token, algorithms=["HS256"])
-        except Exception as e:
-            print(e)
-            return 'Invalid Token', 400
-        if int(decode_token['sub']) != int(user_id):
-            return 'Invalid Token', 400
+        if "x-access-token" not in headers:
+            return "Bad request", 400
+        token = headers["x-access-token"]
+        if not images_functions.check_token(token, user_id):
+            return "Bad request", 400
+        if "files[]" not in request.files:
+            return "Bad request", 400
 
-        if 'files[]' not in request.files:
-            return jsonify({'message': 'No file part in the request'}), 422
         files = request.files.getlist('files[]')
-        errors = {}
-        success = False
+        db_photos = []
         for file in files:
-            if file:
-                data = file.read()
-                file_hash = hashlib.md5(data).hexdigest()
-                filename = file_hash[10:] + (uuid.uuid4().hex)[0:7] + datetime.now().strftime('%Y%m%d%H%M%S%f') + '.webp'
-                hash_road = str(file_hash[0:2]) + '/' + str(file_hash[2:4]) + '/' + str(file_hash[4:6]) + '/' + str(file_hash[6:8])
-                if not os.path.exists(AVATAR_UPLOAD_FOLDER + '/' + hash_road):
-                    os.makedirs(AVATAR_UPLOAD_FOLDER + '/' + hash_road)
-                f = open(AVATAR_UPLOAD_FOLDER + '/' + hash_road + '/' + filename, "wb")
-                f.write(data)
-                f.close()
-                road = AVATAR_UPLOAD_ALIAS + '/' + hash_road + '/' + filename
-                success = True
-            else:
-                errors[file.filename] = 'File type is not allowed'
+            filename = file.filename
+            if file and images_functions.check_filename(filename):
+                try:
+                    data = file.read()
+                    file_hash = hashlib.md5(data).hexdigest()
 
-        if success and errors:
-            errors['message'] = 'something wrong'
-            resp = jsonify(errors)
-            resp.status_code = 500
-            return resp
-        if success:
-            con = psycopg2.connect(
-                database=database,
-                user=user,
-                password=password,
-                host=host,
-                port=port
-            )
-            cur = con.cursor()
-            row = '"userPhoto"'
-            cur.execute(
-                "UPDATE public.users SET " + row + " = '" + road + "' WHERE id = " + user_id
-            )
-            con.commit()
-            con.close()
-            return jsonify({'message': 'success', 'image': road}), 200
-        else:
-            resp = jsonify(errors)
-            resp.status_code = 500
-            return resp
+                    photo = Image.open(file)
+                    photo = photo.convert('RGB')
+
+                    new_filename = str(user_id) + file_hash[8:] + ".webp"
+                    db_filename = file_hash
+                    hash_road = str(file_hash[0:2]) + "/" + str(file_hash[2:4]) + "/" + str(file_hash[4:6]) + "/" + str(file_hash[6:8])
+                    save_road = config.upload_folder + "/" + config.avatar_alias + "/" + hash_road
+
+                    if not os.path.exists(save_road):
+                        os.makedirs(save_road)
+
+                    images_functions.resize_thumbnail(photo, 1200, 1200)
+                    images_functions.save_image(photo, save_road + "/" + "n" + new_filename, 80)
+                    db_photos.append(db_filename)
+
+                except Exception:
+                    pass
+
+        if len(db_photos) == 1:
+            try:
+                con = psycopg2.connect(database=database, user=user, password=password, host=host, port=port)
+                cur = con.cursor()
+                # cur.execute("UPDATE public.users SET \"userPhoto\" = '" + photos[0] + "' WHERE id = " + user_id)
+                cur.execute("UPDATE public.users SET \"avatar\" = %s WHERE id = %s", (db_photos[0], user_id))
+                con.commit()
+                con.close()
+                return jsonify({"message": "success", "images": db_photos}), 200
+            except Exception:
+                pass
+    return "Bad request", 400
 
 
-@app.route('/post/<user_id>/<post_id>', methods=['POST'])
+@app.route("/post/<user_id>/<post_id>", methods=["POST"])
 def upload_post_photo(user_id, post_id):
-    if request.method == 'POST':
+    if request.method == "POST":
 
         headers = request.headers
-        if 'x-access-token' not in headers:
-            return 'A token is required for authentication', 400
-        try:
-            decode_token = jwt.decode(headers['x-access-token'], config.kvik_token, algorithms=["HS256"])
-        except Exception as e:
-            print(e)
-            return 'Invalid Token', 400
-        if int(decode_token['sub']) != int(user_id):
-            return 'Invalid Token', 400
+        if "x-access-token" not in headers:
+            return "Bad request", 400
+        token = headers["x-access-token"]
+        if not images_functions.check_token(token, user_id):
+            return "Bad request", 400
+        if "files[]" not in request.files:
+            return "Bad request", 400
 
-        if 'files[]' not in request.files:
-            return jsonify({'message': 'No file part in the request'}), 422
-        files = request.files.getlist('files[]')
-
-        errors = {}
-        success = False
-        data_photos = {"photos": []}
+        files = request.files.getlist("files[]")
+        # photos = []
+        db_photos = []
         for file in files:
-            if file:
-                data = file.read()
-                print(data)
+            filename = file.filename
+            if file and images_functions.check_filename(filename):
+                try:
+                    data = file.read()
+                    file_hash = hashlib.md5(data).hexdigest()
 
+                    photo = Image.open(file)
+                    photo = photo.convert('RGB')
 
+                    new_filename = str(post_id) + file_hash[8:] + ".webp"
+                    db_filename = file_hash
+                    hash_road = str(file_hash[0:2]) + "/" + str(file_hash[2:4]) + "/" + str(file_hash[4:6]) + "/" + str(file_hash[6:8])
+                    save_road = config.upload_folder + "/" + config.post_alias + "/" + hash_road
 
+                    if not os.path.exists(save_road):
+                        os.makedirs(save_road)
 
-                photo = Image.open(file)
-                watermark = Image.open('watermark.png')
+                    images_functions.resize_thumbnail(photo, 1200, 1200)
+                    medium_image = photo.copy()
+                    small_image = photo.copy()
+                    smallest_image = photo.copy()
+                    images_functions.make_watermark(photo)
+                    images_functions.resize_thumbnail(medium_image, 950, 500)
+                    images_functions.make_watermark(medium_image)
+                    images_functions.resize_thumbnail(small_image, 400, 400)
+                    images_functions.resize_thumbnail(smallest_image, 150, 150)
 
-                mark_width, mark_height = watermark.size
-                photo_width, photo_height = photo.size
+                    images_functions.save_image(photo, save_road + "/" + "n" + new_filename, 80)
+                    images_functions.save_image(medium_image, save_road + "/" + "m" + new_filename, 80)
+                    images_functions.save_image(small_image, save_road + "/" + "s" + new_filename, 80)
+                    images_functions.save_image(smallest_image, save_road + "/" + "x" + new_filename, 80)
 
+                    # db_road = config.upload_alias + "/" + config.post_alias + "/" + hash_road + "/" + new_filename
+                    # photos.append(db_road)
+                    db_photos.append(db_filename)
+                except Exception:
+                    pass
 
-                if photo_height > photo_width:
-                    new_mark_width = int(photo_width / 5)
-                    new_mark_height = int(new_mark_width * mark_height / mark_width)
-                    step = int(new_mark_height * 0.5)
-                else:
-                    new_mark_height = int(photo_height / 10)
-                    new_mark_width = int(new_mark_height * mark_width / mark_height)
-                    step = int(new_mark_width * 0.5)
-
-                watermark = watermark.resize((new_mark_width, new_mark_height))
-                photo.paste(watermark, (photo_width - new_mark_width - step, photo_height - new_mark_height - step), watermark)
-
-                file_hash = hashlib.md5(data).hexdigest()
-                filename = str(post_id) + file_hash[8:] + '.webp'
-                hash_road = str(file_hash[0:2]) + '/' + str(file_hash[2:4]) + '/' + str(file_hash[4:6]) + '/' + str(file_hash[6:8])
-                if not os.path.exists(POST_UPLOAD_FOLDER + '/' + hash_road):
-                    os.makedirs(POST_UPLOAD_FOLDER + '/' + hash_road)
-
-
-                photo.save(POST_UPLOAD_FOLDER + '/' + hash_road + '/' + filename)
-                # f = open(POST_UPLOAD_FOLDER + '/' + hash_road + '/' + filename, "wb")
-                # f.write(data)
-                # f.close()
-
-
-
-                road = POST_UPLOAD_ALIAS + '/' + hash_road + '/' + filename
-                data_photos["photos"].append(road)
-                success = True
-
-            else:
-                errors[file.filename] = 'File type is not allowed'
-
-        if success and errors:
-            errors['message'] = 'something wrong'
-            resp = jsonify(errors)
-            resp.status_code = 500
-            return resp
-        if success:
-            valid_data = '"' + (str(data_photos).replace("'", '\\"')).replace(" ", "") + '"'
-            con = psycopg2.connect(
-                database=database,
-                user=user,
-                password=password,
-                host=host,
-                port=port
-            )
-            cur = con.cursor()
-            row = '"photo"'
-            cur.execute(
-                "UPDATE public.posts SET " + row + " = '" + valid_data + "' WHERE id = " + post_id + " AND user_id = " + user_id
-            )
-            con.commit()
-            con.close()
-            return jsonify({'message': 'success', 'images': data_photos}), 200
-        else:
-
-            resp = jsonify(errors)
-            resp.status_code = 500
-            return resp
+        if len(db_photos) > 0:
+            try:
+                # valid_data = '"' + (str({"photos": photos}).replace("'", '\\"')).replace(" ", "") + '"'
+                con = psycopg2.connect(database=database, user=user, password=password, host=host, port=port)
+                cur = con.cursor()
+                # cur.execute("UPDATE public.posts SET \"photo\" = '" + valid_data + "' WHERE id = " + post_id + " AND user_id = " + user_id)
+                cur.execute("UPDATE public.posts SET \"images\" = %s WHERE id = %s AND user_id = %s", (db_photos, post_id, user_id))
+                con.commit()
+                con.close()
+                return jsonify({"message": "success", "images": db_photos}), 200
+            except Exception:
+                pass
+        return "Bad request", 400
 
 
 @app.route('/chat/<user_id>', methods=['POST'])
 def upload_chat_photo(user_id):
     if request.method == 'POST':
 
-        headers = request.headers
-        if 'x-access-token' not in headers:
-            return 'A token is required for authentication', 400
-        try:
-            decode_token = jwt.decode(headers['x-access-token'], config.kvik_token, algorithms=["HS256"])
-        except Exception as e:
-            print(e)
-            return 'Invalid Token', 400
-        if int(decode_token['sub']) != int(user_id):
-            return 'Invalid Token', 400
+        # headers = request.headers
+        # if "x-access-token" not in headers:
+        #     return "Bad request", 400
+        # token = headers["x-access-token"]
+        # if not images_functions.check_token(token, user_id):
+        #     return "Bad request", 400
+        # if "files[]" not in request.files:
+        #     return "Bad request", 400
 
-        if 'files[]' not in request.files:
-            return jsonify({'message': 'No file part in the request'}), 422
-        files = request.files.getlist('files[]')
-        errors = {}
-        success = False
-        data_photos = {"photos": []}
+        files = request.files.getlist("files[]")
+        db_photos = []
+
         for file in files:
-            if file:
-                data = file.read()
-                file_hash = hashlib.md5(data).hexdigest()
-                filename = file_hash[10:] + (uuid.uuid4().hex)[0:7] + datetime.now().strftime('%Y%m%d%H%M%S%f') + '.webp'
-                hash_road = str(file_hash[0:2]) + '/' + str(file_hash[2:4]) + '/' + str(file_hash[4:6]) + '/' + str(file_hash[6:8])
-                if not os.path.exists(CHAT_UPLOAD_FOLDER + '/' + hash_road):
-                    os.makedirs(CHAT_UPLOAD_FOLDER + '/' + hash_road)
-                f = open(CHAT_UPLOAD_FOLDER + '/' + hash_road + '/' + filename, "wb")
-                f.write(data)
-                f.close()
-                road = CHAT_UPLOAD_ALIAS + '/' + hash_road + '/' + filename
-                data_photos["photos"].append(road)
-                success = True
+            filename = file.filename
+            if file and images_functions.check_filename(filename):
+                try:
+                    data = file.read()
+                    file_hash = hashlib.md5(data).hexdigest()
 
-            else:
-                errors[file.filename] = 'File type is not allowed'
+                    photo = Image.open(file)
+                    photo = photo.convert('RGB')
 
-        if success and errors:
-            errors['message'] = 'something wrong'
-            resp = jsonify(errors)
-            resp.status_code = 500
-            return resp
-        if success:
-            return jsonify({'message': 'success', 'images': data_photos}), 200
-        else:
+                    new_filename = str(user_id) + file_hash[8:] + ".webp"
+                    # db_filename = file_hash
+                    hash_road = str(file_hash[0:2]) + "/" + str(file_hash[2:4]) + "/" + str(file_hash[4:6]) + "/" + str(
+                        file_hash[6:8])
+                    save_road = config.upload_folder + "/" + config.chat_alias + "/" + hash_road
 
-            resp = jsonify(errors)
-            resp.status_code = 500
-            return resp
+                    if not os.path.exists(save_road):
+                        os.makedirs(save_road)
+
+                    images_functions.resize_thumbnail(photo, 1200, 1200)
+                    images_functions.save_image(photo, save_road + "/" + "n" + new_filename, 80)
+
+                    db_road = "/" + config.server_number + "/" + config.chat_alias + "/" + str(user_id) + "/n/" + str(file_hash)
+                    db_photos.append(db_road)
+
+                except Exception:
+                    pass
+
+        if len(db_photos) > 0:
+            try:
+                return jsonify({"message": "success", "images": db_photos}), 200
+            except Exception:
+                pass
+        return "Bad request", 400
 
 
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0")
